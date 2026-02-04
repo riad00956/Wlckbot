@@ -14,8 +14,8 @@ from telegram.constants import ParseMode
 # লগিং সেটআপ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "8480900490:AAEb_HMeQDmcOUMSA3ufCAp4HSvmqjKAyZQ"
-OWNER_ID = 6926993789 
+TOKEN = "8265396096:AAF-Fo0Tu8enZFXICc8_H7FRW3NUbFoZi2A"
+OWNER_ID = 7832264582
 
 # --- ফ্লাস্ক সেটআপ (রেন্ডার এর জন্য) ---
 web_app = Flask(__name__)
