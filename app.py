@@ -69,7 +69,7 @@ def main_admin_kb():
         [InlineKeyboardButton("🖼 Photo React Text", callback_data="set_photo_text")],
         [InlineKeyboardButton("🎥 Video React Text", callback_data="set_video_text")],
         [InlineKeyboardButton("🎭 Edit Emojis", callback_data="set_emojis")],
-        [InlineKeyboardButton("📊 Stats", callback_data="view_stats"), 
+        [InlineKeyboardButton("🧳 Preview", callback_data="view_stats"), 
          InlineKeyboardButton("❌ Close", callback_data="close_panel")]
     ]
     return InlineKeyboardMarkup(keyboard)
