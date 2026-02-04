@@ -1,7 +1,9 @@
 import logging
 import sqlite3
 import random
-import os  # Render এর পোর্টের জন্য যুক্ত করা হয়েছে
+import os
+from flask import Flask
+from threading import Thread
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReactionTypeEmoji
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, filters, 
@@ -9,11 +11,22 @@ from telegram.ext import (
 )
 from telegram.constants import ParseMode
 
-# লগিং
+# লগিং সেটআপ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "8265396096:AAGX4icnhHHkuPwZIzRk8fKXyjn_jQer9ZI"
-OWNER_ID = 7832264582
+TOKEN = "8480900490:AAEb_HMeQDmcOUMSA3ufCAp4HSvmqjKAyZQ"
+OWNER_ID = 6926993789 
+
+# --- ফ্লাস্ক সেটআপ (রেন্ডার এর জন্য) ---
+web_app = Flask(__name__)
+
+@web_app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8000))
+    web_app.run(host='0.0.0.0', port=port)
 
 # --- ডেটাবেজ লজিক ---
 def init_db():
@@ -52,9 +65,10 @@ def main_admin_kb():
     keyboard = [
         [InlineKeyboardButton("📝 Welcome Message", callback_data="set_welcome")],
         [InlineKeyboardButton("🏃 Leave Message", callback_data="set_leave")],
-        [InlineKeyboardButton("💬 React Text", callback_data="set_react_text")],
+        [InlineKeyboardButton("💬 Edit React Text", callback_data="set_react_text")],
         [InlineKeyboardButton("🎭 Edit Emojis", callback_data="set_emojis")],
-        [InlineKeyboardButton("📊 Stats", callback_data="view_stats"), InlineKeyboardButton("❌ Close", callback_data="close_panel")]
+        [InlineKeyboardButton("📊 Stats", callback_data="view_stats"), 
+         InlineKeyboardButton("❌ Close", callback_data="close_panel")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -67,7 +81,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id): return
-    await update.message.reply_text("🛠 **Admin Control Panel**", reply_markup=main_admin_kb(), parse_mode=ParseMode.MARKDOWN)
+    await update.message.reply_text("🛠 **Admin Control Panel**", 
+                                   reply_markup=main_admin_kb(), 
+                                   parse_mode=ParseMode.MARKDOWN)
 
 async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -75,79 +91,60 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if query.data == "back_to_main":
         await query.edit_message_text("🛠 **Admin Control Panel**", reply_markup=main_admin_kb())
-    
     elif query.data == "set_welcome":
         context.user_data['waiting_for'] = "welcome_msg"
-        context.user_data['panel_id'] = query.message.message_id
-        await query.edit_message_text("📝 **নতুন ওয়েলকাম মেসেজটি লিখুন:**\n(বট শুরুতে মেনশন দিয়ে দিবে)", reply_markup=back_kb())
-
+        await query.edit_message_text("📝 **নতুন ওয়েলকাম মেসেজটি লিখুন:**", reply_markup=back_kb())
     elif query.data == "set_leave":
         context.user_data['waiting_for'] = "leave_msg"
-        context.user_data['panel_id'] = query.message.message_id
-        await query.edit_message_text("🏃 **কেউ লিভ নিলে কী মেসেজ যাবে তা লিখুন:**\n(বট শুরুতে নাম দিয়ে দিবে)", reply_markup=back_kb())
-
+        await query.edit_message_text("🏃 **বিদায়ি মেসেজটি লিখুন:**", reply_markup=back_kb())
     elif query.data == "set_react_text":
         context.user_data['waiting_for'] = "react_text"
-        context.user_data['panel_id'] = query.message.message_id
-        await query.edit_message_text("💬 **রিপ্লাই টেক্সট লিখুন:**", reply_markup=back_kb())
-
+        await query.edit_message_text("💬 **ফটো/ভিডিওর জন্য নতুন রিপ্লাই টেক্সট লিখুন:**", reply_markup=back_kb())
     elif query.data == "set_emojis":
         context.user_data['waiting_for'] = "emoji_list"
-        context.user_data['panel_id'] = query.message.message_id
-        await query.edit_message_text("🎭 **ইমোজিগুলো কমা দিয়ে লিখুন:**\n\nফরম্যাট: `😐, 💔, 🙋`", reply_markup=back_kb())
-
+        await query.edit_message_text("🎭 **ইমোজিগুলো কমা দিয়ে লিখুন:**\nউদাহরণ: `😐, 💔, 🙋`", reply_markup=back_kb())
     elif query.data == "view_stats":
-        emojis = get_setting("emoji_list")
-        welcome = get_setting("welcome_msg")
-        leave = get_setting("leave_msg")
-        await query.edit_message_text(f"📊 **সেটিংস:**\n\n👋 Welcome: {welcome}\n🏃 Leave: {leave}\n🎭 Emojis: `{emojis}`", reply_markup=back_kb())
-    
+        stats = (f"📊 **বর্তমান সেটিংস:**\n\n👋 Welcome: {get_setting('welcome_msg')}\n"
+                 f"🏃 Leave: {get_setting('leave_msg')}\n💬 React Text: {get_setting('react_text')}\n"
+                 f"🎭 Emojis: `{get_setting('emoji_list')}`")
+        await query.edit_message_text(stats, reply_markup=back_kb())
     elif query.data == "close_panel":
         await query.message.delete()
 
 async def input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target = context.user_data.get('waiting_for')
     if target:
-        new_value = update.message.text
-        set_setting(target, new_value)
-        await update.message.delete()
-        panel_id = context.user_data.get('panel_id')
+        set_setting(target, update.message.text)
         context.user_data['waiting_for'] = None
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=panel_id, 
-                                          text="✅ **সফলভাবে আপডেট হয়েছে!**", reply_markup=main_admin_kb())
+        await update.message.delete()
+        await context.bot.send_message(update.effective_chat.id, "✅ সফলভাবে আপডেট হয়েছে!", reply_markup=main_admin_kb())
 
-# --- অটো ফিচারসমূহ ---
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = get_setting("react_text")
-    await update.message.reply_text(text)
+    # ১. টেক্সট রিপ্লাই (এডমিন প্যানেল থেকে যেটা সেট করা হবে)
+    await update.message.reply_text(get_setting("react_text"))
     
-    emoji_str = get_setting("emoji_list")
-    emoji_list = [e.strip() for e in emoji_str.split(',')]
+    # ২. ছবির মতো ইমোজি রিঅ্যাকশন (র‍্যান্ডম)
+    emoji_list = [e.strip() for e in get_setting("emoji_list").split(',')]
     random_emoji = random.choice(emoji_list)
-    
     try:
         await update.message.set_reaction(reaction=[ReactionTypeEmoji(emoji=random_emoji)])
-    except Exception as e:
-        logging.error(f"Reaction error: {e}")
+    except: pass
 
 async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = update.chat_member
     user = result.new_chat_member.user
     mention = user.mention_html()
-
-    if result.old_chat_member.status in ["left", "kicked", "both_left"] and result.new_chat_member.status == "member":
-        db_msg = get_setting("welcome_msg")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"{mention} {db_msg}", parse_mode=ParseMode.HTML)
-
+    if result.old_chat_member.status in ["left", "kicked"] and result.new_chat_member.status == "member":
+        await context.bot.send_message(update.effective_chat.id, f"{mention} {get_setting('welcome_msg')}", parse_mode=ParseMode.HTML)
     elif result.new_chat_member.status in ["left", "kicked"]:
-        db_msg = get_setting("leave_msg")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"<b>{user.full_name}</b> {db_msg}", parse_mode=ParseMode.HTML)
+        await context.bot.send_message(update.effective_chat.id, f"<b>{user.full_name}</b> {get_setting('leave_msg')}", parse_mode=ParseMode.HTML)
 
 def main():
     init_db()
-    app = Application.builder().token(TOKEN).build()
+    # ফ্লাস্ক সার্ভার চালু করা (ব্যাকগ্রাউন্ডে)
+    Thread(target=run_flask).start()
     
-    # হ্যান্ডলারসমূহ
+    app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("admin", admin_panel))
     app.add_handler(CallbackQueryHandler(handle_callbacks))
@@ -155,11 +152,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, input_handler))
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, auto_react))
     
-    # Render এর জন্য পোর্ট বাইন্ডিং (এটি ম্যান্ডেটরি)
-    port = int(os.environ.get("PORT", 8000))
-    print(f"বট চলছে পোর্ট {port}-এ...")
-    
-    # run_polling এ allowed_updates যুক্ত করা হয়েছে
+    print("বট সচল আছে...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
