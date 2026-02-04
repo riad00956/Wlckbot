@@ -1,4 +1,4 @@
-import logging
+myimport logging
 import sqlite3
 import random
 import os  # Render এর পোর্টের জন্য যুক্ত করা হয়েছে
@@ -63,7 +63,7 @@ def back_kb():
 
 # --- হ্যান্ডলারস ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 বট সচল আছে! /admin লিখুন।")
+    await update.message.reply_text("হ্যালো 😁, বট এখন চালু আছে। তোমার গ্রুপে এড করে নাও। 😸")
 
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id): return
