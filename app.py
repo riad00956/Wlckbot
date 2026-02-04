@@ -35,7 +35,8 @@ def init_db():
     cursor.execute('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)')
     cursor.execute('INSERT OR IGNORE INTO settings VALUES ("welcome_msg", "আমাদের গ্রুপে আপনাকে স্বাগতম!")')
     cursor.execute('INSERT OR IGNORE INTO settings VALUES ("leave_msg", "গ্রুপ থেকে বিদায় নিলেন। ভালো থাকবেন!")')
-    cursor.execute('INSERT OR IGNORE INTO settings VALUES ("react_text", "খুব সুন্দর হয়েছে! 😍")')
+    cursor.execute('INSERT OR IGNORE INTO settings VALUES ("photo_react_text", "খুব সুন্দর ছবি! 😍")')
+    cursor.execute('INSERT OR IGNORE INTO settings VALUES ("video_react_text", "দারুণ ভিডিও! 🔥")')
     cursor.execute('INSERT OR IGNORE INTO settings VALUES ("emoji_list", "😐, 💔, 🙋, 🔥, ❤️")')
     cursor.execute('CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)')
     cursor.execute('INSERT OR IGNORE INTO admins (user_id) VALUES (?)', (OWNER_ID,))
@@ -65,7 +66,8 @@ def main_admin_kb():
     keyboard = [
         [InlineKeyboardButton("📝 Welcome Message", callback_data="set_welcome")],
         [InlineKeyboardButton("🏃 Leave Message", callback_data="set_leave")],
-        [InlineKeyboardButton("💬 Edit React Text", callback_data="set_react_text")],
+        [InlineKeyboardButton("🖼 Photo React Text", callback_data="set_photo_text")],
+        [InlineKeyboardButton("🎥 Video React Text", callback_data="set_video_text")],
         [InlineKeyboardButton("🎭 Edit Emojis", callback_data="set_emojis")],
         [InlineKeyboardButton("📊 Stats", callback_data="view_stats"), 
          InlineKeyboardButton("❌ Close", callback_data="close_panel")]
@@ -97,15 +99,21 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "set_leave":
         context.user_data['waiting_for'] = "leave_msg"
         await query.edit_message_text("🏃 **বিদায়ি মেসেজটি লিখুন:**", reply_markup=back_kb())
-    elif query.data == "set_react_text":
-        context.user_data['waiting_for'] = "react_text"
-        await query.edit_message_text("💬 **ফটো/ভিডিওর জন্য নতুন রিপ্লাই টেক্সট লিখুন:**", reply_markup=back_kb())
+    elif query.data == "set_photo_text":
+        context.user_data['waiting_for'] = "photo_react_text"
+        await query.edit_message_text("🖼 **ছবির জন্য নতুন রিপ্লাই টেক্সট লিখুন:**", reply_markup=back_kb())
+    elif query.data == "set_video_text":
+        context.user_data['waiting_for'] = "video_react_text"
+        await query.edit_message_text("🎥 **ভিডিওর জন্য নতুন রিপ্লাই টেক্সট লিখুন:**", reply_markup=back_kb())
     elif query.data == "set_emojis":
         context.user_data['waiting_for'] = "emoji_list"
         await query.edit_message_text("🎭 **ইমোজিগুলো কমা দিয়ে লিখুন:**\nউদাহরণ: `😐, 💔, 🙋`", reply_markup=back_kb())
     elif query.data == "view_stats":
-        stats = (f"📊 **বর্তমান সেটিংস:**\n\n👋 Welcome: {get_setting('welcome_msg')}\n"
-                 f"🏃 Leave: {get_setting('leave_msg')}\n💬 React Text: {get_setting('react_text')}\n"
+        stats = (f"📊 **বর্তমান সেটিংস:**\n\n"
+                 f"👋 Welcome: {get_setting('welcome_msg')}\n"
+                 f"🏃 Leave: {get_setting('leave_msg')}\n"
+                 f"🖼 Photo Text: {get_setting('photo_react_text')}\n"
+                 f"🎥 Video Text: {get_setting('video_react_text')}\n"
                  f"🎭 Emojis: `{get_setting('emoji_list')}`")
         await query.edit_message_text(stats, reply_markup=back_kb())
     elif query.data == "close_panel":
@@ -120,10 +128,13 @@ async def input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(update.effective_chat.id, "✅ সফলভাবে আপডেট হয়েছে!", reply_markup=main_admin_kb())
 
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ১. টেক্সট রিপ্লাই (এডমিন প্যানেল থেকে যেটা সেট করা হবে)
-    await update.message.reply_text(get_setting("react_text"))
+    # ফটো না ভিডিও তা চেক করে আলাদা মেসেজ দেয়া
+    if update.message.photo:
+        await update.message.reply_text(get_setting("photo_react_text"))
+    elif update.message.video:
+        await update.message.reply_text(get_setting("video_react_text"))
     
-    # ২. ছবির মতো ইমোজি রিঅ্যাকশন (র‍্যান্ডম)
+    # ছবির মতো ইমোজি রিঅ্যাকশন (র‍্যান্ডম)
     emoji_list = [e.strip() for e in get_setting("emoji_list").split(',')]
     random_emoji = random.choice(emoji_list)
     try:
